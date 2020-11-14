@@ -74,24 +74,35 @@ void ex()
 	NVIC_Init(&nv);
 }
 
-int on = 0;
+volatile uint32_t d = 0;
 
-void EXTI0_IRQHandler()
+void SysTick_Handler()
 {
-	if (on)
-		GPIO_SetBits(GPIOE, GPIO_Pin_9);
-	else
-		GPIO_ResetBits(GPIOE, GPIO_Pin_9);
-	on = !on;
-	EXTI_ClearFlag(EXTI_Line0);
+	++d;
+}
+
+void delay(uint32_t ms)
+{
+	d = 0;
+	while (d < ms);
 }
 
 int main()
 {
 	gpio();
-	ex();
+	//ex();
 
-    while (1) { __NOP(); };
+	RCC_ClocksTypeDef r;
+	RCC_GetClocksFreq(&r);
+	SysTick_Config(r.HCLK_Frequency / 1000);
+
+    while (1)
+	{
+    	GPIO_SetBits(GPIOE, GPIO_Pin_9);
+    	delay(500);
+    	GPIO_ResetBits(GPIOE, GPIO_Pin_9);
+    	delay(500);
+	}
 
     return 0;
 }
