@@ -74,20 +74,15 @@ void ex()
 	NVIC_Init(&nv);
 }
 
-volatile uint32_t d = 0;
+volatile uint32_t d1 = 0;
+volatile uint32_t d2 = 0;
+volatile uint32_t d3 = 0;
 
 void SysTick_Handler()
 {
-	++d;
-	if ((d % 300) == 0)
-		GPIOE->ODR ^= (1 << 8);
-	if ((d % 500) == 0)
-		GPIOE->ODR ^= (1 << 9);
-	if ((d % 1000) == 0)
-	{
-		GPIOE->ODR ^= (1 << 10);
-		d = 0;
-	}
+	++d1;
+	++d2;
+	++d3;
 }
 
 void delay(uint32_t ms)
@@ -107,6 +102,20 @@ int main()
 
     while (1)
 	{
+    	if (d1 > 300) {
+    		GPIOE->ODR ^= (1 << 8);
+    		d1 = 0;
+    	}
+    	if (d2 > 500) {
+    		GPIOE->ODR ^= (1 << 9);
+    		d2 = 0;
+    	}
+    	if (d3 > 1000) {
+    		GPIOE->ODR ^= (1 << 10);
+    		d3 = 0;
+    	}
+//    	else
+
     	/*GPIO_SetBits(GPIOE, GPIO_Pin_9);
     	delay(500);
     	GPIO_ResetBits(GPIOE, GPIO_Pin_9);
