@@ -1,10 +1,9 @@
 
 #include "stm32f30x_gpio.h"
 #include "stm32f30x_rcc.h"
-#include <math.h>
-
-#define MAX_LIGHTNESS 1000
-#define DROP_INTERVAL 200
+#include "stm32f30x_misc.h"
+#include "stm32f30x_exti.h"
+#include "stm32f30x_syscfg.h"
 
 
 void myDelay(uint32_t t)
@@ -33,49 +32,66 @@ void myPWM(int32_t tau, int32_t T, uint16_t pin)
 	}
 }
 
+void gpio()
+{
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOE, ENABLE);
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+	GPIO_InitTypeDef g;
+
+	g.GPIO_Pin = GPIO_Pin_9;
+	g.GPIO_Mode = GPIO_Mode_OUT;
+	g.GPIO_Speed = GPIO_Speed_Level_1;
+	g.GPIO_OType = GPIO_OType_PP;
+	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_Init(GPIOE, &g);
+
+	g.GPIO_Pin = GPIO_Pin_0;
+	g.GPIO_Mode = GPIO_Mode_IN;
+	g.GPIO_Speed = GPIO_Speed_Level_1;
+	g.GPIO_PuPd = GPIO_PuPd_DOWN;
+	GPIO_Init(GPIOA, &g);
+}
+
+void ex()
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+
+	SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOA, EXTI_PinSource0);
+
+	EXTI_InitTypeDef e;
+	e.EXTI_Line = EXTI_Line0;
+	e.EXTI_Mode = EXTI_Mode_Interrupt;
+	e.EXTI_Trigger = EXTI_Trigger_Rising;
+	e.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&e);
+
+	NVIC_InitTypeDef nv;
+	nv.NVIC_IRQChannel = EXTI0_IRQn;
+	nv.NVIC_IRQChannelPreemptionPriority = 0;
+	nv.NVIC_IRQChannelSubPriority = 0;
+	nv.NVIC_IRQChannelCmd = ENABLE;
+
+	NVIC_Init(&nv);
+}
+
+int on = 0;
+
+void EXTI0_IRQHandler()
+{
+	if (on)
+		GPIO_SetBits(GPIOE, GPIO_Pin_9);
+	else
+		GPIO_ResetBits(GPIOE, GPIO_Pin_9);
+	on = !on;
+	EXTI_ClearFlag(EXTI_Line0);
+}
+
 int main()
 {
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOE, ENABLE);
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
-    GPIO_InitTypeDef g;
+	gpio();
+	ex();
 
-    g.GPIO_Pin = 0xFF00;
-    g.GPIO_Mode = GPIO_Mode_OUT;
-    g.GPIO_Speed = GPIO_Speed_Level_1;
-    g.GPIO_OType = GPIO_OType_PP;
-    g.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_Init(GPIOE, &g);
-
-    g.GPIO_Pin = GPIO_Pin_0;
-    g.GPIO_Mode = GPIO_Mode_IN;
-    g.GPIO_Speed = GPIO_Speed_Level_1;
-    g.GPIO_PuPd = GPIO_PuPd_DOWN;
-    GPIO_Init(GPIOA, &g);
-
-    float lightness = 0.0f;
-    int drop = 0;
-
-    while (1)
-    {
-    	if (GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0) == 1)
-    	{
-    		++drop;
-    		lightness += 1.0f;
-    		if ((uint32_t)lightness > MAX_LIGHTNESS * 8)
-    		{
-    			lightness = (float)(MAX_LIGHTNESS * 8);
-    			myDelay(50000);
-    		}
-    	}
-    	else
-    	{
-			if (drop > 0 && drop < DROP_INTERVAL)
-				lightness = 0.0f;
-			drop = 0;
-    	}
-    	for (uint8_t i = 0; i < 8; ++i)
-    		myPWM(((uint32_t)lightness - MAX_LIGHTNESS * i), MAX_LIGHTNESS, 1 << (i + 8));
-    }
+    while (1) { __NOP(); };
 
     return 0;
 }
