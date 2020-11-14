@@ -38,7 +38,7 @@ void gpio()
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
 	GPIO_InitTypeDef g;
 
-	g.GPIO_Pin = GPIO_Pin_9;
+	g.GPIO_Pin = 0xFF00;
 	g.GPIO_Mode = GPIO_Mode_OUT;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
 	g.GPIO_OType = GPIO_OType_PP;
@@ -79,6 +79,15 @@ volatile uint32_t d = 0;
 void SysTick_Handler()
 {
 	++d;
+	if ((d % 300) == 0)
+		GPIOE->ODR ^= (1 << 8);
+	if ((d % 500) == 0)
+		GPIOE->ODR ^= (1 << 9);
+	if ((d % 1000) == 0)
+	{
+		GPIOE->ODR ^= (1 << 10);
+		d = 0;
+	}
 }
 
 void delay(uint32_t ms)
@@ -98,10 +107,10 @@ int main()
 
     while (1)
 	{
-    	GPIO_SetBits(GPIOE, GPIO_Pin_9);
+    	/*GPIO_SetBits(GPIOE, GPIO_Pin_9);
     	delay(500);
     	GPIO_ResetBits(GPIOE, GPIO_Pin_9);
-    	delay(500);
+    	delay(500);*/
 	}
 
     return 0;
