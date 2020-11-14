@@ -88,13 +88,8 @@ int main()
 	nvic();
 	tim();
 
-	//nt32_t t = 0;
-	//GPIOE->ODR |= (1 << 8);
 	while(1)
 	{
-		/*t++;
-		if (t % 50000)
-			GPIOE->ODR ^= (1 << 8);*/
 		__NOP();
 	};
 
