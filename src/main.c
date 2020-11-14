@@ -2,8 +2,7 @@
 #include "stm32f30x_gpio.h"
 #include "stm32f30x_rcc.h"
 #include "stm32f30x_misc.h"
-#include "stm32f30x_exti.h"
-#include "stm32f30x_syscfg.h"
+#include "stm32f30x_tim.h"
 
 
 void myDelay(uint32_t t)
@@ -38,7 +37,7 @@ void gpio()
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
 	GPIO_InitTypeDef g;
 
-	g.GPIO_Pin = 0xFF00;
+	g.GPIO_Pin = GPIO_Pin_8;
 	g.GPIO_Mode = GPIO_Mode_OUT;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
 	g.GPIO_OType = GPIO_OType_PP;
@@ -52,75 +51,52 @@ void gpio()
 	GPIO_Init(GPIOA, &g);
 }
 
-void ex()
+void nvic()
 {
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
-
-	SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOA, EXTI_PinSource0);
-
-	EXTI_InitTypeDef e;
-	e.EXTI_Line = EXTI_Line0;
-	e.EXTI_Mode = EXTI_Mode_Interrupt;
-	e.EXTI_Trigger = EXTI_Trigger_Rising;
-	e.EXTI_LineCmd = ENABLE;
-	EXTI_Init(&e);
-
 	NVIC_InitTypeDef nv;
-	nv.NVIC_IRQChannel = EXTI0_IRQn;
+	nv.NVIC_IRQChannel = TIM7_IRQn;
 	nv.NVIC_IRQChannelPreemptionPriority = 0;
 	nv.NVIC_IRQChannelSubPriority = 0;
 	nv.NVIC_IRQChannelCmd = ENABLE;
-
 	NVIC_Init(&nv);
 }
 
-volatile uint32_t d1 = 0;
-volatile uint32_t d2 = 0;
-volatile uint32_t d3 = 0;
-
-void SysTick_Handler()
+void tim()
 {
-	++d1;
-	++d2;
-	++d3;
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM7, ENABLE);
+
+	TIM_TimeBaseInitTypeDef t;
+	TIM_TimeBaseStructInit(&t);
+	t.TIM_CounterMode = TIM_CounterMode_Up;
+	t.TIM_Prescaler = 36000;
+	t.TIM_Period = 1000;
+	TIM_TimeBaseInit(TIM7, &t);
+
+	TIM_ITConfig(TIM7, TIM_IT_Update, ENABLE);
+	TIM_Cmd(TIM7, ENABLE);
 }
 
-void delay(uint32_t ms)
+void TIM7_IRQHandler()
 {
-	d = 0;
-	while (d < ms);
+	GPIOE->ODR ^= (1 << 8);
+	TIM_ClearITPendingBit(TIM7, TIM_IT_Update);
 }
 
 int main()
 {
 	gpio();
-	//ex();
+	nvic();
+	tim();
 
-	RCC_ClocksTypeDef r;
-	RCC_GetClocksFreq(&r);
-	SysTick_Config(r.HCLK_Frequency / 1000);
-
-    while (1)
+	//nt32_t t = 0;
+	//GPIOE->ODR |= (1 << 8);
+	while(1)
 	{
-    	if (d1 > 300) {
-    		GPIOE->ODR ^= (1 << 8);
-    		d1 = 0;
-    	}
-    	if (d2 > 500) {
-    		GPIOE->ODR ^= (1 << 9);
-    		d2 = 0;
-    	}
-    	if (d3 > 1000) {
-    		GPIOE->ODR ^= (1 << 10);
-    		d3 = 0;
-    	}
-//    	else
-
-    	/*GPIO_SetBits(GPIOE, GPIO_Pin_9);
-    	delay(500);
-    	GPIO_ResetBits(GPIOE, GPIO_Pin_9);
-    	delay(500);*/
-	}
+		/*t++;
+		if (t % 50000)
+			GPIOE->ODR ^= (1 << 8);*/
+		__NOP();
+	};
 
     return 0;
 }
