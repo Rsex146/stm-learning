@@ -9,7 +9,7 @@ void gpio()
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOE, ENABLE);
 	GPIO_InitTypeDef g;
 
-	g.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9;
+	g.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10 | GPIO_Pin_11;
 	g.GPIO_Mode = GPIO_Mode_AF;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
 	g.GPIO_OType = GPIO_OType_PP;
@@ -18,6 +18,8 @@ void gpio()
 
 	GPIO_PinAFConfig(GPIOE, GPIO_PinSource8, GPIO_AF_2);
 	GPIO_PinAFConfig(GPIOE, GPIO_PinSource9, GPIO_AF_2);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource10, GPIO_AF_2);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource11, GPIO_AF_2);
 }
 
 void tim()
@@ -49,6 +51,7 @@ void pwm()
 	p.TIM_OCIdleState = TIM_OCIdleState_Set;
 	p.TIM_OCNIdleState = TIM_OCNIdleState_Set;
 	TIM_OC1Init(TIM1, &p);
+	TIM_OC2Init(TIM1, &p);
 }
 
 void nvic()
@@ -70,6 +73,7 @@ void TIM1_UP_TIM16_IRQHandler()
 	if (pulse == 100 || pulse == 0)
 		ph = !ph;
 	TIM1->CCR1 = pulse;
+	TIM1->CCR2 = pulse;
 }
 
 int main()
