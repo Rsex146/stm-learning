@@ -2,6 +2,7 @@
 #include "stm32f30x_gpio.h"
 #include "stm32f30x_rcc.h"
 #include "stm32f30x_tim.h"
+#include <math.h>
 
 
 void gpio()
@@ -66,14 +67,14 @@ void nvic()
 
 void TIM1_UP_TIM16_IRQHandler()
 {
-	static uint16_t pulse = 0;
-	static uint8_t ph = 1;
+	static float pulse = 0.0f;
 	TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
-	pulse += ph ? 1 : -1;
-	if (pulse == 100 || pulse == 0)
-		ph = !ph;
-	TIM1->CCR1 = pulse;
-	TIM1->CCR2 = pulse;
+	uint16_t p = (uint16_t)((sinf(pulse) + 1.0f) / 2.0f * 100.0f);
+	TIM1->CCR1 = p;
+	TIM1->CCR2 = p;
+	pulse += 0.1f;
+	if (pulse > 6.28f)
+		pulse = 0.0f;
 }
 
 int main()

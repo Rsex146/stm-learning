@@ -43,8 +43,8 @@
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.command.rm.1679202195" name="Remove command" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.command.rm" useByScannerDiscovery="false" value="rm" valueType="string"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.createflash.1366129375" name="Create flash image" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.createflash" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.printsize.1421092185" name="Print size" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.addtools.printsize" useByScannerDiscovery="false" value="true" valueType="boolean"/>
-							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.1331844748" name="Float ABI" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi" useByScannerDiscovery="true" value="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.soft" valueType="enumerated"/>
-							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.unit.460337924" name="FPU Type" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.unit" useByScannerDiscovery="true" value="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.unit.default" valueType="enumerated"/>
+							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.1331844748" name="Float ABI" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi" useByScannerDiscovery="true" value="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.abi.hard" valueType="enumerated"/>
+							<option id="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.unit.460337924" name="FPU Type" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.unit" useByScannerDiscovery="true" value="ilg.gnuarmeclipse.managedbuild.cross.option.arm.target.fpu.unit.fpv4spd16" valueType="enumerated"/>
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform.777354262" isAbstract="false" osList="all" superClass="ilg.gnuarmeclipse.managedbuild.cross.targetPlatform"/>
 							<builder buildPath="${workspace_loc:/myblink}/Debug" id="ilg.gnuarmeclipse.managedbuild.cross.builder.1750654725" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="ilg.gnuarmeclipse.managedbuild.cross.builder"/>
 							<tool id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.454374001" name="Cross ARM GNU Assembler" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler">
@@ -346,7 +346,14 @@
 		<project id="myblink.ilg.gnuarmeclipse.managedbuild.cross.target.elf.1047862320" name="Executable" projectType="ilg.gnuarmeclipse.managedbuild.cross.target.elf"/>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
-	<storageModule moduleId="refreshScope"/>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="Debug">
+			<resource resourceType="PROJECT" workspacePath="/myblink"/>
+		</configuration>
+		<configuration configurationName="Release">
+			<resource resourceType="PROJECT" workspacePath="/myblink"/>
+		</configuration>
+	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 	<storageModule moduleId="scannerConfiguration">
