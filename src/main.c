@@ -5,6 +5,43 @@
 #include "stm32f30x_tim.h"
 
 
+#define LED(i) (1 << (8 + ((i) % 8)))
+#define MIN(a, b) ((a) < (b) ? a : b)
+
+static volatile uint16_t g_pinFrom = LED(0);
+static volatile uint16_t g_pinTo = LED(1);
+static volatile int32_t g_t = 0;
+
+void myDelay(uint32_t t)
+{
+	uint32_t i = 0;
+	t *= 7.2;
+	for (i = 0; i < t; ++i) { __NOP(); };
+}
+
+void myPWM(int32_t tau, int32_t T, uint16_t pinAverse, uint16_t pinReverse)
+{
+	if (tau >= T)
+	{
+		GPIO_SetBits(GPIOE, pinAverse);
+		GPIO_ResetBits(GPIOE, pinReverse);
+	}
+	else if (tau > 0)
+	{
+		GPIO_SetBits(GPIOE, pinAverse);
+		GPIO_ResetBits(GPIOE, pinReverse);
+		myDelay((uint32_t)tau);
+		GPIO_ResetBits(GPIOE, pinAverse);
+		GPIO_SetBits(GPIOE, pinReverse);
+		myDelay((uint32_t)(T - tau));
+	}
+	else
+	{
+		GPIO_ResetBits(GPIOE, pinAverse);
+		GPIO_SetBits(GPIOE, pinReverse);
+	}
+}
+
 void gpio()
 {
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
@@ -46,6 +83,7 @@ void adc()
 	a.ADC_AutoInjMode = DISABLE;
 	a.ADC_NbrOfRegChannel = 1;
 	ADC_Init(ADC1, &a);
+
 	ADC_Cmd(ADC1, ENABLE);
 
 	ADC_ITConfig(ADC1, ADC_IT_EOC, ENABLE);
@@ -68,7 +106,11 @@ void nvic()
 void ADC1_2_IRQHandler(void)
 {
 	uint32_t l = ADC_GetConversionValue(ADC1);
-	GPIOE->ODR = 1 << ((l >> 9) + 8);
+	uint32_t ledIdx = l / 512;
+	g_pinFrom = LED(ledIdx);
+	g_pinTo = LED(ledIdx + 1);
+	g_t = l % 512;
+	GPIOE->ODR &= (g_pinFrom | g_pinTo);
 	ADC_ClearITPendingBit(ADC1, ADC_IT_EOC);
 }
 
@@ -80,7 +122,7 @@ int main()
 
 	while(1)
 	{
-		__NOP();
+		myPWM(g_t, 512, g_pinTo, g_pinFrom);
 	};
 
     return 0;
