@@ -2,33 +2,8 @@
 #include "stm32f30x_gpio.h"
 #include "stm32f30x_rcc.h"
 #include "stm32f30x_adc.h"
+#include "stm32f30x_tim.h"
 
-
-void myDelay(uint32_t t)
-{
-	uint32_t i = 0;
-	t *= 7.2;
-	for (i = 0; i < t; ++i){__NOP();};
-}
-
-void myPWM(int32_t tau, int32_t T, uint16_t pin)
-{
-	if (tau >= T)
-	{
-		GPIO_SetBits(GPIOE, pin);
-	}
-	else if (tau > 0)
-	{
-		GPIO_SetBits(GPIOE, pin);
-		myDelay((uint32_t)tau);
-		GPIO_ResetBits(GPIOE, pin);
-		myDelay((uint32_t)(T - tau));
-	}
-	else
-	{
-		GPIO_ResetBits(GPIOE, pin);
-	}
-}
 
 uint32_t readADC(uint8_t channel)
 {
@@ -45,12 +20,15 @@ void gpio()
 	GPIO_InitTypeDef g;
 
 	GPIO_StructInit(&g);
-	g.GPIO_Pin = 0xFF00;
-	g.GPIO_Mode = GPIO_Mode_OUT;
+	g.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9;
+	g.GPIO_Mode = GPIO_Mode_AF;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
 	g.GPIO_OType = GPIO_OType_PP;
 	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	GPIO_Init(GPIOE, &g);
+
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource8, GPIO_AF_2);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource9, GPIO_AF_2);
 
 	GPIO_StructInit(&g);
 	g.GPIO_Pin = GPIO_Pin_0;
@@ -78,16 +56,65 @@ void adc()
 	ADC_Cmd(ADC1, ENABLE);
 }
 
+void pwm()
+{
+	TIM_OCInitTypeDef p;
+	p.TIM_Pulse = 0;
+	p.TIM_OCMode = TIM_OCMode_PWM1;
+	p.TIM_OutputState = TIM_OutputState_Enable;
+	p.TIM_OutputNState = TIM_OutputNState_Enable;
+	p.TIM_OCPolarity = TIM_OCPolarity_High;
+	p.TIM_OCNPolarity = TIM_OCNPolarity_High;
+	p.TIM_OCIdleState = TIM_OCIdleState_Set;
+	p.TIM_OCNIdleState = TIM_OCNIdleState_Set;
+	TIM_OC1Init(TIM1, &p);
+}
+
+void nvic()
+{
+	NVIC_InitTypeDef n;
+	n.NVIC_IRQChannel = TIM1_UP_TIM16_IRQn;
+	n.NVIC_IRQChannelPreemptionPriority = 0;
+	n.NVIC_IRQChannelSubPriority = 0;
+	n.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&n);
+}
+
+void tim()
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
+
+	TIM_TimeBaseInitTypeDef t;
+	TIM_TimeBaseStructInit(&t);
+	t.TIM_CounterMode = TIM_CounterMode_Up;
+	t.TIM_Prescaler = 3600;
+	t.TIM_Period = 4096;
+	TIM_TimeBaseInit(TIM1, &t);
+	TIM_Cmd(TIM1, ENABLE);
+	TIM_CtrlPWMOutputs(TIM1, ENABLE);
+
+	TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
+	TIM_CtrlPWMOutputs(TIM1, ENABLE);
+}
+
+void TIM1_UP_TIM16_IRQHandler()
+{
+	TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
+	uint16_t p = readADC(ADC_Channel_1);
+	TIM1->CCR1 = p;
+}
+
 int main()
 {
 	adc();
 	gpio();
+	nvic();
+	tim();
+	pwm();
 
 	while(1)
 	{
-		uint32_t result = readADC(ADC_Channel_1);
-		myPWM(result, 1 << 12, 1 << 8);
-
+		__NOP();
 	};
 
     return 0;
