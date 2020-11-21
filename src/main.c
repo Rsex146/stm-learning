@@ -5,13 +5,6 @@
 #include "stm32f30x_tim.h"
 
 
-uint32_t readADC(uint8_t channel)
-{
-	ADC_RegularChannelConfig(ADC1, channel, 1, ADC_SampleTime_7Cycles5);
-	ADC_StartConversion(ADC1);
-	return ADC_GetConversionValue(ADC1);
-}
-
 void gpio()
 {
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
@@ -20,8 +13,8 @@ void gpio()
 	GPIO_InitTypeDef g;
 
 	GPIO_StructInit(&g);
-	g.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9;
-	g.GPIO_Mode = GPIO_Mode_AF;
+	g.GPIO_Pin = 0xFF00;
+	g.GPIO_Mode = GPIO_Mode_OUT;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
 	g.GPIO_OType = GPIO_OType_PP;
 	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
@@ -44,7 +37,7 @@ void adc()
 	ADC_InitTypeDef a;
 	ADC_StructInit(&a);
 
-	a.ADC_ContinuousConvMode = DISABLE;
+	a.ADC_ContinuousConvMode = ADC_ContinuousConvMode_Enable;
 	a.ADC_Resolution = ADC_Resolution_12b;
 	a.ADC_ExternalTrigConvEvent = ADC_ExternalTrigConvEvent_0;
 	a.ADC_ExternalTrigEventEdge = ADC_ExternalTrigEventEdge_None;
@@ -54,63 +47,36 @@ void adc()
 	a.ADC_NbrOfRegChannel = 1;
 	ADC_Init(ADC1, &a);
 	ADC_Cmd(ADC1, ENABLE);
-}
 
-void pwm()
-{
-	TIM_OCInitTypeDef p;
-	p.TIM_Pulse = 0;
-	p.TIM_OCMode = TIM_OCMode_PWM1;
-	p.TIM_OutputState = TIM_OutputState_Enable;
-	p.TIM_OutputNState = TIM_OutputNState_Enable;
-	p.TIM_OCPolarity = TIM_OCPolarity_High;
-	p.TIM_OCNPolarity = TIM_OCNPolarity_High;
-	p.TIM_OCIdleState = TIM_OCIdleState_Set;
-	p.TIM_OCNIdleState = TIM_OCNIdleState_Set;
-	TIM_OC1Init(TIM1, &p);
+	ADC_ITConfig(ADC1, ADC_IT_EOC, ENABLE);
+
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_7Cycles5);
+	while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_RDY));
+	ADC_StartConversion(ADC1);
 }
 
 void nvic()
 {
 	NVIC_InitTypeDef n;
-	n.NVIC_IRQChannel = TIM1_UP_TIM16_IRQn;
-	n.NVIC_IRQChannelPreemptionPriority = 0;
-	n.NVIC_IRQChannelSubPriority = 0;
+	n.NVIC_IRQChannel = ADC1_2_IRQn;
+	n.NVIC_IRQChannelPreemptionPriority = 1;
+	n.NVIC_IRQChannelSubPriority = 3;
 	n.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&n);
 }
 
-void tim()
+void ADC1_2_IRQHandler(void)
 {
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
-
-	TIM_TimeBaseInitTypeDef t;
-	TIM_TimeBaseStructInit(&t);
-	t.TIM_CounterMode = TIM_CounterMode_Up;
-	t.TIM_Prescaler = 3600;
-	t.TIM_Period = 4096;
-	TIM_TimeBaseInit(TIM1, &t);
-	TIM_Cmd(TIM1, ENABLE);
-	TIM_CtrlPWMOutputs(TIM1, ENABLE);
-
-	TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
-	TIM_CtrlPWMOutputs(TIM1, ENABLE);
-}
-
-void TIM1_UP_TIM16_IRQHandler()
-{
-	TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
-	uint16_t p = readADC(ADC_Channel_1);
-	TIM1->CCR1 = p;
+	uint32_t l = ADC_GetConversionValue(ADC1);
+	GPIOE->ODR = 1 << ((l >> 9) + 8);
+	ADC_ClearITPendingBit(ADC1, ADC_IT_EOC);
 }
 
 int main()
 {
-	adc();
 	gpio();
 	nvic();
-	tim();
-	pwm();
+	adc();
 
 	while(1)
 	{
@@ -119,5 +85,3 @@ int main()
 
     return 0;
 }
-
-
