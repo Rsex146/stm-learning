@@ -95,6 +95,10 @@ void adc()
 	ADC_DMACmd(ADC1, ENABLE);
 	ADC_DMAConfig(ADC1, ADC_DMAMode_Circular);
 
+	ADC_SelectCalibrationMode(ADC1, ADC_CalibrationMode_Single);
+	ADC_StartCalibration(ADC1);
+	while (ADC_GetCalibrationStatus(ADC1) != RESET);
+
 	ADC_InitTypeDef a;
 	ADC_StructInit(&a);
 
