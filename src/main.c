@@ -1,19 +1,10 @@
 
 #include "stm32f30x_gpio.h"
 #include "stm32f30x_rcc.h"
+#include "stm32f30x_tim.h"
 #include "stm32f30x_dma.h"
 #include "stm32f30x_adc.h"
 
-
-volatile uint16_t g_result = 0;
-
-
-void myDelay(uint32_t t)
-{
-	uint32_t i = 0;
-	t *= 7.2;
-	for (i = 0; i < t; ++i) { __NOP(); };
-}
 
 void gpio()
 {
@@ -23,8 +14,8 @@ void gpio()
 	GPIO_InitTypeDef g;
 
 	GPIO_StructInit(&g);
-	g.GPIO_Pin = 0xFF00;
-	g.GPIO_Mode = GPIO_Mode_OUT;
+	g.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9;
+	g.GPIO_Mode = GPIO_Mode_AF;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
 	g.GPIO_OType = GPIO_OType_PP;
 	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
@@ -34,6 +25,37 @@ void gpio()
 	g.GPIO_Pin = GPIO_Pin_0;
 	g.GPIO_Mode = GPIO_Mode_AN;
 	GPIO_Init(GPIOA, &g);
+
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource8, GPIO_AF_2);
+	GPIO_PinAFConfig(GPIOE, GPIO_PinSource9, GPIO_AF_2);
+}
+
+void tim()
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
+
+	TIM_TimeBaseInitTypeDef t;
+	TIM_TimeBaseStructInit(&t);
+	t.TIM_CounterMode = TIM_CounterMode_Up;
+	t.TIM_Prescaler = 36;
+	t.TIM_Period = 4095;
+	TIM_TimeBaseInit(TIM1, &t);
+	TIM_Cmd(TIM1, ENABLE);
+	TIM_CtrlPWMOutputs(TIM1, ENABLE);
+}
+
+void pwm()
+{
+	TIM_OCInitTypeDef p;
+	p.TIM_Pulse = 0;
+	p.TIM_OCMode = TIM_OCMode_PWM1;
+	p.TIM_OutputState = TIM_OutputState_Enable;
+	p.TIM_OutputNState = TIM_OutputNState_Enable;
+	p.TIM_OCPolarity = TIM_OCPolarity_High;
+	p.TIM_OCNPolarity = TIM_OCNPolarity_High;
+	p.TIM_OCIdleState = TIM_OCIdleState_Set;
+	p.TIM_OCNIdleState = TIM_OCNIdleState_Set;
+	TIM_OC1Init(TIM1, &p);
 }
 
 void dma()
@@ -42,7 +64,7 @@ void dma()
 	DMA_InitTypeDef d;
 	DMA_StructInit(&d);
 	d.DMA_PeripheralBaseAddr = (uint32_t)&(ADC1->DR);
-	d.DMA_MemoryBaseAddr = (uint32_t)&g_result;
+	d.DMA_MemoryBaseAddr = (uint32_t)&(TIM1->CCR1);
 	d.DMA_DIR = DMA_DIR_PeripheralSRC;
 	d.DMA_BufferSize = DMA_PeripheralDataSize_HalfWord;
 	d.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
@@ -81,35 +103,34 @@ void adc()
 	a.ADC_ExternalTrigConvEvent = ADC_ExternalTrigConvEvent_0;
 	a.ADC_ExternalTrigEventEdge = ADC_ExternalTrigEventEdge_None;
 	a.ADC_DataAlign = ADC_DataAlign_Right;
-	a.ADC_OverrunMode = DISABLE;
-	a.ADC_AutoInjMode = DISABLE;
+	a.ADC_OverrunMode = ADC_OverrunMode_Disable;
+	a.ADC_AutoInjMode = ADC_AutoInjec_Disable;
 	a.ADC_NbrOfRegChannel = 1;
 	ADC_Init(ADC1, &a);
 
 	ADC_Cmd(ADC1, ENABLE);
+}
 
+void startADC()
+{
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_7Cycles5);
 	while (!ADC_GetFlagStatus(ADC1, ADC_FLAG_RDY));
 	ADC_StartConversion(ADC1);
-}
-
-void pwm(uint32_t t)
-{
-	GPIOE->ODR |= (1 << 9);
-	myDelay(t);
-	GPIOE->ODR &= ~(1 << 9);
-	myDelay(4095 - t);
 }
 
 int main()
 {
 	adc();
 	gpio();
+	tim();
+	pwm();
 	dma();
+
+	startADC();
 
 	while (1)
 	{
-		pwm(g_result);
+		__NOP();
 	};
 
     return 0;
