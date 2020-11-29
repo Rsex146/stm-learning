@@ -6,13 +6,7 @@
 #include "stm32f30x_spi.h"
 
 
-volatile uint8_t g_sendData;
-volatile uint8_t g_receiveData[2];
-volatile uint8_t g_tempByte;
-volatile uint16_t g_xResult;
-volatile uint8_t g_xSign;
-
-double g_xPosition;
+float g_xPosition = 0.0f;
 
 
 void gpio()
@@ -117,68 +111,112 @@ void nvic()
 
 void TIM7_IRQHandler()
 {
+	uint8_t receiveData[2];
 	GPIO_ResetBits(GPIOE, GPIO_Pin_3); // Start talk
 	sendByte(0xE8); // Start gyro conversion
-	g_receiveData[0] = sendByte(0x00); // Get first byte of conversion
-	g_receiveData[1] = sendByte(0x00); // Get second byte of conversion
+	receiveData[0] = sendByte(0x00); // Get first byte of conversion
+	receiveData[1] = sendByte(0x00); // Get second byte of conversion
 	GPIO_SetBits(GPIOE, GPIO_Pin_3); // End talk
 
-	g_xResult = (g_receiveData[0] | (g_receiveData[1] << 8)) - 10; // -10 is offset of gyro, get it calibrated!
-	if ((g_xResult & 0x8000) == 0) // find out sign
-		g_xSign = 0; // "+"
+	uint16_t xResult = (receiveData[0] | (receiveData[1] << 8)) - 10; // -10 is offset of gyro, get it calibrated!
+	uint8_t xSign;
+	if ((xResult & 0x8000) == 0) // find out sign
+		xSign = 0; // "+"
 	else
 	{
-		g_xSign = 1; // "-"
+		xSign = 1; // "-"
 		// Flip according to datasheet, this is reverse-code according to our gyro
-		g_xResult &= 0x7FFF;
-		g_xResult = 0x8000 - g_xResult;
+		xResult &= 0x7FFF;
+		xResult = 0x8000 - xResult;
 	}
-	if (g_xResult < 0x20) // Threshold to remove electrical/thermal bouncing of gyro, get it calibrated!
-		g_xResult = 0;
+	if (xResult < 0x20) // Threshold to remove electrical/thermal bouncing of gyro, get it calibrated!
+		xResult = 0;
 	// 0.07 is degrees per second; 0.025 is sampling rate in seconds.
 	// Normally it should be 0.02, but we are too slow in this interrupt handler, so we are using 0.025
-	if (g_xSign == 0)
-		g_xPosition += 0.07 * g_xResult * 0.025;
+	g_xPosition = (xSign ? 1.0f : -1.0f);
+	if (xSign == 0)
+		g_xPosition += 0.07f * (float)xResult * 0.025f;
 	else
-		g_xPosition -= 0.07 * g_xResult * 0.025;
+		g_xPosition -= 0.07f * (float)xResult * 0.025f;
 
 	GPIO_Write(GPIOE, 0x0000); // Switch off all LEDs
 
-	// Map angle to LEDs
-	if ((g_xPosition > -105) && (g_xPosition < -75))
-		GPIO_SetBits(GPIOE, GPIO_Pin_8);
-	if ((g_xPosition > -75) && (g_xPosition < -45))
-		GPIO_SetBits(GPIOE, GPIO_Pin_9);
-	if ((g_xPosition > -45) && (g_xPosition < -15))
-		GPIO_SetBits(GPIOE, GPIO_Pin_10);
-	if ((g_xPosition > -15) && (g_xPosition < 15))
-		GPIO_SetBits(GPIOE, GPIO_Pin_11);
-	if ((g_xPosition > 15) && (g_xPosition < 45))
-		GPIO_SetBits(GPIOE, GPIO_Pin_12);
-	if ((g_xPosition > 45) && (g_xPosition < 75))
-		GPIO_SetBits(GPIOE, GPIO_Pin_13);
-	if ((g_xPosition > 75) && (g_xPosition < 105))
-		GPIO_SetBits(GPIOE, GPIO_Pin_14);
+	// g_xPosition is in -105; 105
 
 	TIM_ClearITPendingBit(TIM7, TIM_IT_Update); // Clear interrupt flag.
+}
+
+void myDelay(uint32_t t)
+{
+	uint32_t i = 0;
+	t *= 7.2;
+	for (i = 0; i < t; ++i) { __NOP(); };
+}
+
+const uint8_t MPWM_CHANNEL_CNT = 8;
+const uint16_t MPWM_PINS[8] =
+{
+	GPIO_Pin_8,
+	GPIO_Pin_9,
+	GPIO_Pin_10,
+	GPIO_Pin_11,
+	GPIO_Pin_12,
+	GPIO_Pin_13,
+	GPIO_Pin_14,
+	GPIO_Pin_15,
+};
+
+void myPWM(int32_t *tau, uint32_t T)
+{
+	int32_t curTau = 0;
+	int32_t lastTau = 0;
+	do
+	{
+		int32_t nextTau = T;
+		for (uint8_t i = 0; i < MPWM_CHANNEL_CNT; ++i)
+		{
+			if (tau[i] > curTau)
+			{
+				GPIO_SetBits(GPIOE, MPWM_PINS[i]);
+				if (tau[i] < nextTau)
+					nextTau = tau[i];
+			}
+			else
+			{
+				GPIO_ResetBits(GPIOE, MPWM_PINS[i]);
+			}
+			if (tau[i] > lastTau)
+				lastTau = tau[i];
+		}
+		myDelay((uint32_t)(nextTau - curTau));
+		curTau = nextTau;
+	}
+	while (curTau != lastTau);
+	for (uint8_t i = 0; i < MPWM_CHANNEL_CNT; ++i)
+	{
+		if (tau[i] < (int32_t)T)
+			GPIO_ResetBits(GPIOE, MPWM_PINS[i]);
+	}
+	myDelay((uint32_t)(T - lastTau));
 }
 
 int main()
 {
 	gpio();
-	spi();
-	nvic();
+	//spi();
+	//nvic();
 
-	g_xPosition = 0;
+	//writeData(0x20, 0x0A);
+	//writeData(0x23, 0x30);
 
-	writeData(0x20, 0x0A);
-	writeData(0x23, 0x30);
+	//tim();
 
-	tim();
 
+	int32_t tau[8] = { 0, 1, 50, 0, 0, 1024, 2048, 4000 };
 	while (1)
 	{
-		__NOP();
+		myPWM(tau, 4095);
+//		__NOP();
 	};
 
     return 0;
