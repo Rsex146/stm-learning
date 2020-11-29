@@ -133,13 +133,7 @@ void TIM7_IRQHandler()
 		xResult = 0;
 	// 0.07 is degrees per second; 0.025 is sampling rate in seconds.
 	// Normally it should be 0.02, but we are too slow in this interrupt handler, so we are using 0.025
-	g_xPosition = (xSign ? 1.0f : -1.0f);
-	if (xSign == 0)
-		g_xPosition += 0.07f * (float)xResult * 0.025f;
-	else
-		g_xPosition -= 0.07f * (float)xResult * 0.025f;
-
-	GPIO_Write(GPIOE, 0x0000); // Switch off all LEDs
+	g_xPosition += (xSign ? 1.0f : -1.0f) * 0.07f * (float)xResult * 0.025f;
 
 	// g_xPosition is in -105; 105
 
@@ -165,6 +159,7 @@ const uint16_t MPWM_PINS[8] =
 	GPIO_Pin_14,
 	GPIO_Pin_15,
 };
+#define MPWM_PORT GPIOE
 
 void myPWM(int32_t *tau, uint32_t T)
 {
@@ -177,46 +172,66 @@ void myPWM(int32_t *tau, uint32_t T)
 		{
 			if (tau[i] > curTau)
 			{
-				GPIO_SetBits(GPIOE, MPWM_PINS[i]);
+				GPIO_SetBits(MPWM_PORT, MPWM_PINS[i]);
 				if (tau[i] < nextTau)
 					nextTau = tau[i];
 			}
 			else
 			{
-				GPIO_ResetBits(GPIOE, MPWM_PINS[i]);
+				GPIO_ResetBits(MPWM_PORT, MPWM_PINS[i]);
 			}
 			if (tau[i] > lastTau)
+			{
 				lastTau = tau[i];
+				if (lastTau > (int32_t)T)
+					lastTau = (int32_t)T;
+			}
 		}
 		myDelay((uint32_t)(nextTau - curTau));
 		curTau = nextTau;
 	}
-	while (curTau != lastTau);
+	while (curTau < lastTau);
 	for (uint8_t i = 0; i < MPWM_CHANNEL_CNT; ++i)
 	{
 		if (tau[i] < (int32_t)T)
-			GPIO_ResetBits(GPIOE, MPWM_PINS[i]);
+			GPIO_ResetBits(MPWM_PORT, MPWM_PINS[i]);
 	}
 	myDelay((uint32_t)(T - lastTau));
+}
+
+float map(float x, float fromMin, float fromMax, float toMin, float toMax)
+{
+	return (x - fromMin) / (fromMax - fromMin) * (toMax - toMin) + toMin;
 }
 
 int main()
 {
 	gpio();
-	//spi();
-	//nvic();
+	spi();
+	nvic();
 
-	//writeData(0x20, 0x0A);
-	//writeData(0x23, 0x30);
+	writeData(0x20, 0x0A);
+	writeData(0x23, 0x30);
 
-	//tim();
+	tim();
 
-
-	int32_t tau[8] = { 0, 1, 50, 0, 0, 1024, 2048, 4000 };
 	while (1)
 	{
-		myPWM(tau, 4095);
-//		__NOP();
+		const uint32_t T = 4095;
+		int32_t tau[8];
+		float val = map(g_xPosition, -105.0f, 105.0f, 0.0f, 7.0f);
+		int32_t idx = (int32_t)val;
+		float t = val - (float)idx;
+		for (int32_t i = 0; i < 8; ++i)
+		{
+			if (i == idx)
+				tau[i] = (int32_t)((1.0f - t) * (float)T);
+			else if (i == idx + 1)
+				tau[i] = (int32_t)(t * (float)T);
+			else
+				tau[i] = 0;
+		}
+		myPWM(tau, T);
 	};
 
     return 0;
