@@ -113,7 +113,7 @@ void TIM7_IRQHandler()
 {
 	uint8_t receiveData[2];
 	GPIO_ResetBits(GPIOE, GPIO_Pin_3); // Start talk
-	sendByte(0xE8); // Start gyro conversion
+	sendByte(0xEC); // Start gyro conversion
 	receiveData[0] = sendByte(0x00); // Get first byte of conversion
 	receiveData[1] = sendByte(0x00); // Get second byte of conversion
 	GPIO_SetBits(GPIOE, GPIO_Pin_3); // End talk
@@ -210,7 +210,7 @@ int main()
 	spi();
 	nvic();
 
-	writeData(0x20, 0x0A);
+	writeData(0x20, 0x0C);
 	writeData(0x23, 0x30);
 
 	tim();
