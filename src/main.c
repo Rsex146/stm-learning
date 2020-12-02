@@ -6,140 +6,6 @@
 #include "stm32f30x_spi.h"
 
 
-float g_xPosition = 0.0f;
-
-
-void gpio()
-{
-	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
-	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOE, ENABLE);
-
-	GPIO_InitTypeDef g;
-
-	// Leds
-	GPIO_StructInit(&g);
-	g.GPIO_Pin = 0xFF00;
-	g.GPIO_Mode = GPIO_Mode_OUT;
-	g.GPIO_Speed = GPIO_Speed_Level_1;
-	g.GPIO_OType = GPIO_OType_PP;
-	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_Init(GPIOE, &g);
-
-	// SS for gyro
-	GPIO_StructInit(&g);
-	g.GPIO_Pin = GPIO_Pin_3;
-	g.GPIO_Mode = GPIO_Mode_OUT;
-	g.GPIO_Speed = GPIO_Speed_Level_1;
-	g.GPIO_OType = GPIO_OType_PP;
-	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_Init(GPIOE, &g);
-
-	// SPI1
-	GPIO_StructInit(&g);
-	g.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_6 | GPIO_Pin_7;
-	g.GPIO_Mode = GPIO_Mode_AF;
-	g.GPIO_Speed = GPIO_Speed_Level_1;
-	g.GPIO_OType = GPIO_OType_PP;
-	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_Init(GPIOA, &g);
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource5, GPIO_AF_5);
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource6, GPIO_AF_5);
-	GPIO_PinAFConfig(GPIOA, GPIO_PinSource7, GPIO_AF_5);
-}
-
-void spi()
-{
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
-
-	SPI_InitTypeDef s;
-
-	SPI_StructInit(&s);
-	s.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
-	s.SPI_DataSize = SPI_DataSize_8b;
-	s.SPI_CPOL = SPI_CPOL_High;
-	s.SPI_CPHA = SPI_CPHA_2Edge;
-	s.SPI_NSS = SPI_NSS_Soft;
-	s.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_8;
-	s.SPI_FirstBit = SPI_FirstBit_MSB;
-	s.SPI_CRCPolynomial = 7;
-	s.SPI_Mode = SPI_Mode_Master;
-	SPI_Init(SPI1, &s);
-	SPI_Cmd(SPI1, ENABLE);
-
-	SPI_RxFIFOThresholdConfig(SPI1, SPI_RxFIFOThreshold_QF);
-}
-
-uint8_t sendByte(uint8_t data)
-{
-	while (SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET){};
-	SPI_SendData8(SPI1, data);
-	while (SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET){};
-	return (uint8_t)SPI_ReceiveData8(SPI1);
-}
-
-void writeData(uint8_t address, uint8_t data)
-{
-	GPIO_ResetBits(GPIOE, GPIO_Pin_3);
-	sendByte(address);
-	sendByte(data);
-	GPIO_SetBits(GPIOE, GPIO_Pin_3);
-}
-
-void tim()
-{
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM7, ENABLE);
-
-	TIM_TimeBaseInitTypeDef t;
-	TIM_TimeBaseStructInit(&t);
-	t.TIM_CounterMode = TIM_CounterMode_Up;
-	t.TIM_Prescaler = 36000;
-	t.TIM_Period = 40;
-	TIM_TimeBaseInit(TIM7, &t);
-	TIM_ITConfig(TIM7, TIM_IT_Update, ENABLE);
-	TIM_Cmd(TIM7, ENABLE);
-}
-
-void nvic()
-{
-	NVIC_InitTypeDef n;
-	n.NVIC_IRQChannel = TIM7_IRQn;
-	n.NVIC_IRQChannelPreemptionPriority = 0;
-	n.NVIC_IRQChannelSubPriority = 0;
-	n.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&n);
-}
-
-void TIM7_IRQHandler()
-{
-	uint8_t receiveData[2];
-	GPIO_ResetBits(GPIOE, GPIO_Pin_3); // Start talk
-	sendByte(0xEC); // Start gyro conversion
-	receiveData[0] = sendByte(0x00); // Get first byte of conversion
-	receiveData[1] = sendByte(0x00); // Get second byte of conversion
-	GPIO_SetBits(GPIOE, GPIO_Pin_3); // End talk
-
-	uint16_t xResult = (receiveData[0] | (receiveData[1] << 8)) - 10; // -10 is offset of gyro, get it calibrated!
-	uint8_t xSign;
-	if ((xResult & 0x8000) == 0) // find out sign
-		xSign = 0; // "+"
-	else
-	{
-		xSign = 1; // "-"
-		// Flip according to datasheet, this is reverse-code according to our gyro
-		xResult &= 0x7FFF;
-		xResult = 0x8000 - xResult;
-	}
-	if (xResult < 0x20) // Threshold to remove electrical/thermal bouncing of gyro, get it calibrated!
-		xResult = 0;
-	// 0.07 is degrees per second; 0.025 is sampling rate in seconds.
-	// Normally it should be 0.02, but we are too slow in this interrupt handler, so we are using 0.025
-	g_xPosition += (xSign ? 1.0f : -1.0f) * 0.07f * (float)xResult * 0.025f;
-
-	// g_xPosition is in -105; 105
-
-	TIM_ClearITPendingBit(TIM7, TIM_IT_Update); // Clear interrupt flag.
-}
-
 void myDelay(uint32_t t)
 {
 	uint32_t i = 0;
@@ -147,91 +13,135 @@ void myDelay(uint32_t t)
 	for (i = 0; i < t; ++i) { __NOP(); };
 }
 
-const uint8_t MPWM_CHANNEL_CNT = 8;
-const uint16_t MPWM_PINS[8] =
+void usart1()
 {
-	GPIO_Pin_8,
-	GPIO_Pin_9,
-	GPIO_Pin_10,
-	GPIO_Pin_11,
-	GPIO_Pin_12,
-	GPIO_Pin_13,
-	GPIO_Pin_14,
-	GPIO_Pin_15,
-};
-#define MPWM_PORT GPIOE
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
 
-void myPWM(int32_t *tau, uint32_t T)
+	GPIO_InitTypeDef g;
+	GPIO_StructInit(&g);
+
+	g.GPIO_Pin = GPIO_Pin_9 | GPIO_Pin_10;
+	g.GPIO_Mode = GPIO_Mode_AF;
+	g.GPIO_Speed = GPIO_Speed_Level_1;
+	g.GPIO_OType = GPIO_OType_PP;
+	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_Init(GPIOA, &g);
+
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource9, GPIO_AF_7);
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource10, GPIO_AF_7);
+
+	USART_InitTypeDef u;
+	USART_StructInit(&u);
+	u.USART_BaudRate = 9600;
+	USART_Init(USART1, &u);
+
+	USART_Cmd(USART1, ENABLE);
+}
+
+void usart2()
 {
-	int32_t curTau = 0;
-	int32_t lastTau = 0;
-	do
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+
+	GPIO_InitTypeDef g;
+	GPIO_StructInit(&g);
+
+	g.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_3;
+	g.GPIO_Mode = GPIO_Mode_AF;
+	g.GPIO_Speed = GPIO_Speed_Level_1;
+	g.GPIO_OType = GPIO_OType_PP;
+	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_Init(GPIOA, &g);
+
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource2, GPIO_AF_7);
+	GPIO_PinAFConfig(GPIOA, GPIO_PinSource3, GPIO_AF_7);
+
+	USART_InitTypeDef u;
+	USART_StructInit(&u);
+	u.USART_BaudRate = 9600;
+	USART_Init(USART2, &u);
+
+	USART_Cmd(USART2, ENABLE);
+
+	USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);
+	NVIC_EnableIRQ(USART2_IRQn);
+}
+
+void led()
+{
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOE, ENABLE);
+
+	GPIO_InitTypeDef g;
+
+	GPIO_StructInit(&g);
+	g.GPIO_Pin = 0xFF00;
+	g.GPIO_Mode = GPIO_Mode_OUT;
+	g.GPIO_Speed = GPIO_Speed_Level_1;
+	g.GPIO_OType = GPIO_OType_PP;
+	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	GPIO_Init(GPIOE, &g);
+}
+
+void button()
+{
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA, ENABLE);
+
+	GPIO_InitTypeDef g;
+
+	GPIO_StructInit(&g);
+	g.GPIO_Pin = GPIO_Pin_0;
+	g.GPIO_Mode = GPIO_Mode_IN;
+	g.GPIO_Speed = GPIO_Speed_Level_1;
+	g.GPIO_OType = GPIO_OType_PP;
+	g.GPIO_PuPd = GPIO_PuPd_DOWN;
+	GPIO_Init(GPIOA, &g);
+}
+
+void usart1_send(uint8_t ch)
+{
+	while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+	USART_SendData(USART1, ch);
+}
+
+void USART2_IRQHandler()
+{
+	if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)
 	{
-		int32_t nextTau = T;
-		for (uint8_t i = 0; i < MPWM_CHANNEL_CNT; ++i)
+		GPIOE->ODR = 1 << (USART_ReceiveData(USART2) + 8);
+	}
+}
+
+void button_scan()
+{
+	static uint8_t f = 0;
+	static uint8_t k = 0;
+	if ((GPIOA->IDR & 0x1) && (f == 0))
+	{
+		myDelay(50000);
+		if ((GPIOA->IDR & 0x1) && (f == 0))
 		{
-			if (tau[i] > curTau)
-			{
-				GPIO_SetBits(MPWM_PORT, MPWM_PINS[i]);
-				if (tau[i] < nextTau)
-					nextTau = tau[i];
-			}
-			else
-			{
-				GPIO_ResetBits(MPWM_PORT, MPWM_PINS[i]);
-			}
-			if (tau[i] > lastTau)
-			{
-				lastTau = tau[i];
-				if (lastTau > (int32_t)T)
-					lastTau = (int32_t)T;
-			}
+			usart1_send((k++) % 8);
+			f = 1;
 		}
-		myDelay((uint32_t)(nextTau - curTau));
-		curTau = nextTau;
 	}
-	while (curTau < lastTau);
-	for (uint8_t i = 0; i < MPWM_CHANNEL_CNT; ++i)
+	if (!(GPIOA->IDR & 0x1) && (f == 1))
 	{
-		if (tau[i] < (int32_t)T)
-			GPIO_ResetBits(MPWM_PORT, MPWM_PINS[i]);
+		f = 0;
 	}
-	myDelay((uint32_t)(T - lastTau));
 }
 
-float map(float x, float fromMin, float fromMax, float toMin, float toMax)
-{
-	return (x - fromMin) / (fromMax - fromMin) * (toMax - toMin) + toMin;
-}
 
 int main()
 {
-	gpio();
-	spi();
-	nvic();
-
-	writeData(0x20, 0x0C);
-	writeData(0x23, 0x30);
-
-	tim();
+	led();
+	button();
+	usart1();
+	usart2();
 
 	while (1)
 	{
-		const uint32_t T = 4095;
-		int32_t tau[8];
-		float val = map(g_xPosition, -105.0f, 105.0f, 0.0f, 7.0f);
-		int32_t idx = (int32_t)val;
-		float t = val - (float)idx;
-		for (int32_t i = 0; i < 8; ++i)
-		{
-			if (i == idx)
-				tau[i] = (int32_t)((1.0f - t) * (float)T);
-			else if (i == idx + 1)
-				tau[i] = (int32_t)(t * (float)T);
-			else
-				tau[i] = 0;
-		}
-		myPWM(tau, T);
+		button_scan();
 	};
 
     return 0;
