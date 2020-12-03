@@ -11,6 +11,7 @@
 
 volatile uint8_t g_src[DMA_BUFF_SIZE] = { 1, 2, 3, 4 };
 volatile uint8_t g_dst[DMA_BUFF_SIZE] = { 0 };
+volatile uint8_t g_end[DMA_BUFF_SIZE] = { 0 };
 volatile uint8_t g_dataReady = 0;
 
 void myDelay(uint32_t t)
@@ -136,7 +137,7 @@ void EXTI0_IRQHandler()
 	EXTI_ClearFlag(EXTI_Line0);
 }
 
-void dma()
+void dma1()
 {
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
 	DMA_InitTypeDef d;
@@ -158,6 +159,28 @@ void dma()
 	NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 }
 
+void dma2()
+{
+	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
+	DMA_InitTypeDef d;
+	DMA_StructInit(&d);
+	d.DMA_PeripheralBaseAddr = (uint32_t)&g_dst;
+	d.DMA_MemoryBaseAddr = (uint32_t)&g_end;
+	d.DMA_DIR = DMA_DIR_PeripheralSRC;
+	d.DMA_BufferSize = 4;
+	d.DMA_PeripheralInc = DMA_PeripheralInc_Enable;
+	d.DMA_MemoryInc = DMA_MemoryInc_Enable;
+	d.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+	d.DMA_MemoryDataSize = DMA_PeripheralDataSize_Byte;
+	d.DMA_Mode = DMA_Mode_Normal;
+	d.DMA_Priority = DMA_Priority_Medium;
+	d.DMA_M2M = DMA_M2M_Enable;
+	DMA_Init(DMA2_Channel1, &d);
+	DMA_Cmd(DMA2_Channel1, DISABLE);
+	DMA_ITConfig(DMA2_Channel1, DMA_IT_TC, ENABLE);
+	NVIC_EnableIRQ(DMA2_Channel1_IRQn);
+}
+
 void usart1_send(uint8_t ch)
 {
 	while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
@@ -172,11 +195,25 @@ void DMA1_Channel1_IRQHandler(void)
 	DMA_Cmd(DMA1_Channel1, DISABLE);
 }
 
+void DMA2_Channel1_IRQHandler(void)
+{
+	GPIOE->ODR = (1 << (g_end[0] + 8)) | (1 << (g_end[1] + 8)) | (1 << (g_end[2] + 8)) | (1 << (g_end[3] + 8));
+
+	DMA_ClearITPendingBit(DMA2_IT_TC1);
+	DMA_Cmd(DMA2_Channel1, DISABLE);
+}
+
 void USART2_IRQHandler()
 {
+	static uint8_t bytesReceived = 0;
 	if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)
 	{
-		GPIOE->ODR |= 1 << (USART_ReceiveData(USART2) + 8);
+		++bytesReceived;
+		if (bytesReceived == DMA_BUFF_SIZE)
+		{
+			bytesReceived = 0;
+			DMA_Cmd(DMA2_Channel1, ENABLE);
+		}
 	}
 }
 
@@ -184,7 +221,8 @@ int main()
 {
 	led();
 	button();
-	dma();
+	dma1();
+	dma2();
 	usart1();
 	usart2();
 
