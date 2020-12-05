@@ -558,4 +558,15 @@ static void IntToUnicode (uint32_t value , uint8_t *pbuf , uint8_t len)
   }
 }
 
+void USB_Send_Data(uint8_t data)
+{
+	USART_Rx_Buffer[USART_Rx_ptr_in] = data;
+	USART_Rx_ptr_in++;
+
+	if (USART_Rx_ptr_in >= USART_RX_DATA_SIZE)
+	{
+		USART_Rx_ptr_in = 0;
+	}
+}
+
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
