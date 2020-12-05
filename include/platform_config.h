@@ -30,6 +30,19 @@
 #ifndef __PLATFORM_CONFIG_H
 #define __PLATFORM_CONFIG_H
 
+/* Exported types ------------------------------------------------------------*/
+/* Exported constants --------------------------------------------------------*/
+/* Uncomment the line corresponding to the STMicroelectronics evaluation board
+   used to run the example */
+#if !defined (USE_STM3210B_EVAL) &&  !defined (USE_STM3210E_EVAL)  && !defined (USE_STM32L152_EVAL) &&  !defined (USE_STM32L152D_EVAL) &&  !defined (USE_STM32373C_EVAL) && !defined (USE_STM32303C_EVAL)
+//#define USE_STM3210B_EVAL
+//#define USE_STM3210E_EVAL
+//#define USE_STM32L152_EVAL
+//#define USE_STM32L152D_EVAL
+//#define (USE_STM32373C_EVAL)
+#define USE_STM32303C_EVAL
+#endif
+
 /* Includes ------------------------------------------------------------------*/
 #if defined(STM32L1XX_MD) || defined(STM32L1XX_HD)|| defined(STM32L1XX_MD_PLUS)
  #include "stm32l1xx.h"
@@ -57,18 +70,6 @@
  #include "stm32303c_eval.h"
 #endif
 
-/* Exported types ------------------------------------------------------------*/
-/* Exported constants --------------------------------------------------------*/
-/* Uncomment the line corresponding to the STMicroelectronics evaluation board
-   used to run the example */
-#if !defined (USE_STM3210B_EVAL) &&  !defined (USE_STM3210E_EVAL)  && !defined (USE_STM32L152_EVAL) &&  !defined (USE_STM32L152D_EVAL) &&  !defined (USE_STM32373C_EVAL) && !defined (USE_STM32303C_EVAL)
-//#define USE_STM3210B_EVAL
-//#define USE_STM3210E_EVAL
-//#define USE_STM32L152_EVAL
-//#define USE_STM32L152D_EVAL
-//#define (USE_STM32373C_EVAL)
-#define (USE_STM32303C_EVAL)
-#endif
 
 /*Unique Devices IDs register set*/
 
@@ -147,9 +148,9 @@
   #define RCC_AHBPeriph_GPIO_DISCONNECT       RCC_AHBPeriph_GPIOB
 #endif /* USE_STM3210B_EVAL */
 
-#if defined (USE_STM32L152_EVAL) || (USE_STM32373C_EVAL)
+#if defined (USE_STM32L152_EVAL) || defined (USE_STM32373C_EVAL)
  #define EVAL_COM1_IRQHandler                USART2_IRQHandler
-#elif defined (USE_STM32L152D_EVAL) || (USE_STM32303C_EVAL)
+#elif defined (USE_STM32L152D_EVAL) || defined (USE_STM32303C_EVAL)
  #define EVAL_COM1_IRQHandler              USART1_IRQHandler
 #endif
 
