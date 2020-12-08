@@ -64,8 +64,9 @@ public:
     };
 };
 
-/*class IMU
+class IMU
 {
+    I2C m_i2c1;
     MPU6050 m_mpu;
     Mahony m_filter;
     // unsigned long m_t;
@@ -78,25 +79,11 @@ public:
 
     bool init()
     {
-        if (!m_mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G))
+        m_i2c1.init(I2C::Module::N1);
+        if (!m_mpu.init(MPU6050::Module::N1, &m_i2c1))
             return false;
 
-        m_mpu.setAccelPowerOnDelay(MPU6050_DELAY_3MS);
-        
-        m_mpu.setIntFreeFallEnabled(false);  
-        m_mpu.setIntZeroMotionEnabled(false);
-        m_mpu.setIntMotionEnabled(false);
-          
-        m_mpu.setDHPFMode(MPU6050_DHPF_0_63HZ);
-        m_mpu.setDLPFMode(MPU6050_DLPF_6);
-
-        m_mpu.setMotionDetectionThreshold(8);
-        m_mpu.setMotionDetectionDuration(5);
-
-        m_mpu.setZeroMotionDetectionThreshold(4);
-        m_mpu.setZeroMotionDetectionDuration(2);
-
-        m_mpu.calibrateGyro(1000);
+        m_mpu.calibrate(250);
 
         // m_t = millis();
 
@@ -105,21 +92,23 @@ public:
 
     Quat read()
     {
-        Vector tGyro = m_mpu.readNormalizeGyro();
-        Vector tAxel = m_mpu.readNormalizeAccel();
+        float gyro[3];
+        float accel[3];
+        m_mpu.readGyro(gyro);
+        m_mpu.readAccel(accel);
 
         // unsigned long t = millis();
         // float isf = (float)(t - m_t) / 1000.0f;
         // m_t = t;
         float isf = 0.02f;
 
-        m_filter.updateIMU(tGyro.XAxis, tGyro.YAxis, tGyro.ZAxis, tAxel.XAxis, tAxel.YAxis, tAxel.ZAxis, isf);
+        m_filter.updateIMU(gyro[0], gyro[1], gyro[2], accel[0], accel[1], accel[2], isf);
 
         Quat q;
         m_filter.getQuaternion(q[0], q[1], q[2], q[3]);
 
         return q;
     };
-};*/
+};
 
 #endif // __IMU_H__

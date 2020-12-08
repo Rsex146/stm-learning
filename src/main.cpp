@@ -5,7 +5,7 @@
 // #include <usb_pwr.h>
 
 
-#include "i2c_lib.h"
+#include "imu_lib.h"
 
 
  void led()
@@ -47,13 +47,17 @@ int main()
 	led();
 	GPIOE->ODR = (1 << 9);
 
-	uint8_t who;
+	/*uint8_t who;
 	I2C i2c;
 	i2c.init(I2C::Module::N1);
-	i2c.read(0x68, 0x75, &who, 1);
+	i2c.read(0x68, 0x75, &who, 1);*/
+
+	IMU imu;
+	bool ok = imu.init();
 	
 	while (true)
 	{
+		Quat q = imu.read();
 		__NOP();
 	}
 	return 0;
