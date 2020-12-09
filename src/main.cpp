@@ -1,10 +1,12 @@
 
 #include <stdio.h>
 
-#include <hw_config.h>
-#include <usb_lib.h>
-#include <usb_desc.h>
-#include <usb_pwr.h>
+extern "C" {
+#include "hw_config.h"
+#include "usb_lib.h"
+#include "usb_desc.h"
+#include "usb_pwr.h"
+}
 
 #include "imu_lib.h"
 
@@ -84,6 +86,7 @@ void button_scan()
 		if ((GPIOA->IDR & 0x1) && (f == 0))
 		{
 			init_usb();
+			GPIOE->ODR = (1 << 8);
 			g_usb = true;
 			f = 1;
 		}
@@ -101,6 +104,8 @@ int main()
 
 	GPIOE->ODR = (1 << 9);
 
+	button_scan();
+
 	/*uint8_t who;
 	I2C i2c;
 	i2c.init(I2C::Module::N1);
@@ -108,23 +113,30 @@ int main()
 
 	char buf[255];
 
-	IMU imu;
-	bool ok = imu.init();
+	I2C i2c;
+	IMU imu1, imu2;
+	i2c.init(I2C::Module::N1);
+	bool ok1 = imu1.init(&i2c, MPU6050::Module::N1);
+	bool ok2 = imu2.init(&i2c, MPU6050::Module::N2);
 	
+	GPIOE->ODR |= (1 << 10);
+
 	while (true)
 	{
 		if (g_usb)
 		{
-			Quat q = imu.read();
-			sprintf(buf, "{\"q\":[%f,%f,%f,%f]}\n", q[0], q[1], q[2], q[3]);
+			Quat q1 = imu1.read();
+			Quat q2 = imu2.read();
+			sprintf(buf, "{\"q1\":[%f,%f,%f,%f],\"q2\":[%f,%f,%f,%f]}\n",
+                    q1[0], q1[1], q1[2], q1[3], q2[0], q2[1], q2[2], q2[3]);
 			for (uint8_t i = 0; buf[i]; ++i)
 				USB_Send_Data(buf[i]);
 			USB_Send_Data(0);
 		}
-		else
+		/*else
 		{
 			button_scan();
-		}
+		}*/
 	}
 	
 	return 0;
