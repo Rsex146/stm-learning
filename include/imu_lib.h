@@ -66,7 +66,6 @@ public:
 
 class IMU
 {
-    I2C m_i2c1;
     MPU6050 m_mpu;
     Mahony m_filter;
     // unsigned long m_t;
@@ -77,10 +76,9 @@ public:
         // m_t = 0;
     };
 
-    bool init()
+    bool init(I2C *i2c, MPU6050::Module module)
     {
-        m_i2c1.init(I2C::Module::N1);
-        if (!m_mpu.init(MPU6050::Module::N1, &m_i2c1))
+        if (!m_mpu.init(module, i2c))
             return false;
 
         m_mpu.calibrate(250);
