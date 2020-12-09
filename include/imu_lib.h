@@ -98,7 +98,7 @@ public:
         // unsigned long t = millis();
         // float isf = (float)(t - m_t) / 1000.0f;
         // m_t = t;
-        float isf = 0.02f;
+        float isf = 0.04f;
 
         m_filter.updateIMU(gyro[0], gyro[1], gyro[2], accel[0], accel[1], accel[2], isf);
 
