@@ -327,7 +327,7 @@ void USART_Config_Default(void)
                     TRUE : configuration done with success
                     FALSE : configuration aborted.
 *******************************************************************************/
-bool USART_Config(void)
+BOOL USART_Config(void)
 {
 
   /* set the Stop bit*/
