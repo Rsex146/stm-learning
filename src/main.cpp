@@ -97,6 +97,25 @@ void button_scan()
 	}
 }
 
+bool button_scan2()
+{
+	static uint8_t f = 0;
+	if ((GPIOA->IDR & 0x1) && (f == 0))
+	{
+		myDelay(50000);
+		if ((GPIOA->IDR & 0x1) && (f == 0))
+		{
+			f = 1;
+			return true;
+		}
+	}
+	if (!(GPIOA->IDR & 0x1) && (f == 1))
+	{
+		f = 0;
+	}
+	return false;
+}
+
 int main()
 {
 	led();
@@ -113,6 +132,8 @@ int main()
 
 	char buf[255];
 
+	Quat qRef1, qRef2;
+
 	I2C i2c;
 	IMU imu1, imu2;
 	i2c.init(I2C::Module::N1);
@@ -127,6 +148,13 @@ int main()
 		{
 			Quat q1 = imu1.read();
 			Quat q2 = imu2.read();
+			if ((GPIOA->IDR & 0x1))
+			{
+				qRef1 = q1.inverse();
+				qRef2 = q2.inverse();
+			}
+			q1 = qRef1 * q1;
+			q2 = qRef2 * q2;
 			sprintf(buf, "{\"q1\":[%f,%f,%f,%f],\"q2\":[%f,%f,%f,%f]}\n",
                     q1[0], q1[1], q1[2], q1[3], q2[0], q2[1], q2[2], q2[3]);
 			for (uint8_t i = 0; buf[i]; ++i)
