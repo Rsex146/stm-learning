@@ -17,14 +17,23 @@ public:
     };
 
 private:
+    enum Direction
+    {
+        IN,
+        OUT
+    };
+
     I2C_TypeDef *m_i2c;
+
+    void beginTransaction(Direction dir, uint32_t address, uint8_t len);
+    void endTransaction();
 
 public:
     I2C();
 
     void init(Module module);
-    void read(uint32_t address, uint8_t regName, uint8_t *buffer, uint8_t len);
-    void write(uint32_t address, uint8_t regName, const uint8_t *buffer, uint8_t len);
+    bool read(uint32_t address, uint8_t regName, uint8_t *buffer, uint8_t len);
+    bool write(uint32_t address, uint8_t regName, const uint8_t *buffer, uint8_t len);
 };
 
 #endif //__I2C_LIB_H__

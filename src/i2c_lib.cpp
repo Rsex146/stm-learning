@@ -2,6 +2,13 @@
 #include "i2c_lib.h"
 
 
+#define I2C_OFFSET_TIMINGR_SCLL   0
+#define I2C_OFFSET_TIMINGR_SCLH   8
+#define I2C_OFFSET_TIMINGR_SDADEL 16
+#define I2C_OFFSET_TIMINGR_SCLDEL 20
+#define I2C_OFFSET_TIMINGR_PRESC  28
+#define I2C_OFFSET_CR2_NBYTES     16
+
 I2C::I2C()
 {
     m_i2c = nullptr;
@@ -64,51 +71,81 @@ void I2C::init(Module module)
     I2C_Cmd(m_i2c, ENABLE);
 }
 
-void I2C::read(uint32_t address, uint8_t regName, uint8_t *buffer, uint8_t len)
+void I2C::beginTransaction(Direction dir, uint32_t address, uint8_t len)
+{
+    switch (dir)
+    {
+        case Direction::IN:
+            m_i2c->CR2 |= I2C_CR2_RD_WRN;
+            break;
+
+        case Direction::OUT:
+            m_i2c->CR2 &= ~I2C_CR2_RD_WRN;
+            break;
+    }
+    m_i2c->CR2 &= ~I2C_CR2_NBYTES; // Clear data size field.
+    m_i2c->CR2 |= len << I2C_OFFSET_CR2_NBYTES; // Set desired data size.
+    m_i2c->CR2 &= ~I2C_CR2_SADD; // Clear slave address.
+    m_i2c->CR2 |= address; // Set desired slave address.
+    m_i2c->CR2 |= I2C_CR2_START; // Generate start on the bus.
+    while ((m_i2c->ISR & I2C_ISR_BUSY) == 0); // Wait for the start being generated.
+}
+
+void I2C::endTransaction()
+{
+    m_i2c->CR2 |= I2C_CR2_STOP; // Generate stop on the bus.
+    while (m_i2c->ISR & I2C_ISR_BUSY); // Wait for the stop being generated.
+    m_i2c->ICR |= I2C_ICR_STOPCF; // Clear STOP flag.
+    m_i2c->ICR |= I2C_ICR_NACKCF; // Clear NACK flag.
+    // Clear error flags if any.
+    if (m_i2c->ISR & (I2C_ISR_ARLO | I2C_ISR_BERR))
+    {
+        m_i2c->ICR |= I2C_ICR_ARLOCF;
+        m_i2c->ICR |= I2C_ICR_BERRCF;
+    }
+}
+
+bool I2C::read(uint32_t address, uint8_t regName, uint8_t *buffer, uint8_t len)
 {
     // Convert address to 7bit format.
     address = (address & 0x7F) << 1; 
-
-    // Specify register to read.
-    while (I2C_GetFlagStatus(m_i2c, I2C_FLAG_BUSY) != RESET);
-    I2C_TransferHandling(m_i2c, address, 1, I2C_SoftEnd_Mode, I2C_Generate_Start_Write);
-    while (I2C_GetFlagStatus(m_i2c, I2C_ISR_TXIS) == RESET);
-    I2C_SendData(m_i2c, regName);
-    while (I2C_GetFlagStatus(m_i2c, I2C_ISR_TC) == RESET);
-
-    // Read data.
-    I2C_TransferHandling(m_i2c, address, len, I2C_AutoEnd_Mode, I2C_Generate_Start_Read);
-    for (uint8_t i = 0; i < len; ++i)
+    
+    beginTransaction(Direction::OUT, address, 1);
+    while ((((m_i2c->ISR & I2C_ISR_TC) == 0) && ((m_i2c->ISR & I2C_ISR_NACKF) == 0)) && (m_i2c->ISR & I2C_ISR_BUSY))
     {
-        while (I2C_GetFlagStatus(m_i2c, I2C_ISR_RXNE) == RESET);
-        buffer[i] = I2C_ReceiveData(m_i2c);
+        if (m_i2c->ISR & I2C_ISR_TXIS)
+            m_i2c->TXDR = regName;
     }
 
-    // Stop communication.
-    while (I2C_GetFlagStatus(m_i2c, I2C_ISR_STOPF) == RESET);
-    I2C_ClearFlag(m_i2c, I2C_ICR_STOPCF);
+    uint8_t bytesRead = 0;
+    beginTransaction(Direction::IN, address, len);
+    while ((((m_i2c->ISR & I2C_ISR_TC) == 0) && ((m_i2c->ISR & I2C_ISR_NACKF) == 0)) && (m_i2c->ISR & I2C_ISR_BUSY))
+    {
+        if (m_i2c->ISR & I2C_ISR_RXNE)
+            buffer[bytesRead++] = m_i2c->RXDR;
+    }
+    
+    endTransaction();
+    return bytesRead == len;
 }
     
-void I2C::write(uint32_t address, uint8_t regName, const uint8_t *buffer, uint8_t len)
+bool I2C::write(uint32_t address, uint8_t regName, const uint8_t *buffer, uint8_t len)
 {
     // Convert address to 7bit format.
     address = (address & 0x7F) << 1; 
 
-    // Specify register to write.
-    while (I2C_GetFlagStatus(m_i2c, I2C_FLAG_BUSY) != RESET);
-    I2C_TransferHandling(m_i2c, address, len + 1, I2C_AutoEnd_Mode, I2C_Generate_Start_Write);
-    while (I2C_GetFlagStatus(m_i2c, I2C_ISR_TXIS) == RESET);
-    I2C_SendData(m_i2c, regName);
-    while (I2C_GetFlagStatus(m_i2c, I2C_ISR_TC) == RESET);
-
-    // Write data.
-    for (uint8_t i = 0; i < len; ++i)
+    beginTransaction(Direction::OUT, address, len + 1);
+    while ((((m_i2c->ISR & I2C_ISR_TXIS) == 0) && ((m_i2c->ISR & I2C_ISR_NACKF) == 0)) && (m_i2c->ISR & I2C_ISR_BUSY));
+    if (m_i2c->ISR & I2C_ISR_TXIS)
+        m_i2c->TXDR = regName;
+    
+    uint8_t bytesWritten = 0;
+    while ((((m_i2c->ISR & I2C_ISR_TC) == 0) && ((m_i2c->ISR & I2C_ISR_NACKF) == 0)) && (m_i2c->ISR & I2C_ISR_BUSY))
     {
-        I2C_SendData(m_i2c, (uint8_t)buffer[i]);
-        while (I2C_GetFlagStatus(m_i2c, I2C_ISR_TC) == RESET);
+        if (m_i2c->ISR & I2C_ISR_TXIS)
+            m_i2c->TXDR = buffer[bytesWritten++];
     }
-
-    // Stop communication.
-    while (I2C_GetFlagStatus(m_i2c, I2C_ISR_STOPF) == RESET);
-    I2C_ClearFlag(m_i2c, I2C_ICR_STOPCF);
+    
+    endTransaction();
+    return bytesWritten == len;
 }
