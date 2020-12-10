@@ -58,6 +58,7 @@ void USART_To_USB_Send_Data(void);
 void Handle_USBAsynchXfer (void);
 void Get_SerialNum(void);
 void USB_Send_Data(uint8_t data);
+void USB_Send_String(char *str);
 
 /* External variables --------------------------------------------------------*/
 

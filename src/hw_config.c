@@ -569,4 +569,15 @@ void USB_Send_Data(uint8_t data)
 	}
 }
 
+void USB_Send_String(char *str)
+{
+  uint8_t i;
+  for (i = 0; str[i]; ++i)
+  {
+    USART_Rx_Buffer[USART_Rx_ptr_in++] = (uint8_t)str[i];
+    if (USART_Rx_ptr_in >= USART_RX_DATA_SIZE)
+      USART_Rx_ptr_in = 0;
+  }
+}
+
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
