@@ -7,12 +7,14 @@
 #include "croutine.h"
 #include "task.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include "stm32f30x_gpio.h"
 #include "stm32f30x_rcc.h"
 
 
-xQueueHandle g_led3;
+xSemaphoreHandle btnON;
+xSemaphoreHandle btnOFF;
 
 void vApplicationIdleHook ( void ){}
 void vApplicationMallocFailedHook ( void ){for ( ;; );}
@@ -43,17 +45,21 @@ void gpio()
 	GPIO_Init(GPIOA, &g);
 }
 
-void taskLED()
+void taskLED_ON()
 {
-	uint8_t btn;
-
 	while (1)
 	{
-		xQueueReceive(g_led3, &btn, 0);
-		if (btn == 1)
-			GPIO_SetBits(GPIOE, GPIO_Pin_13);
-		else if (btn == 0)
-			GPIO_ResetBits(GPIOE, GPIO_Pin_13);
+		xSemaphoreTake(btnON, portMAX_DELAY);
+		GPIO_SetBits(GPIOE, GPIO_Pin_13);
+	}
+}
+
+void taskLED_OFF()
+{
+	while (1)
+	{
+		xSemaphoreTake(btnOFF, portMAX_DELAY);
+		GPIO_ResetBits(GPIOE, GPIO_Pin_13);
 	}
 }
 
@@ -76,9 +82,11 @@ int main()
 {
 	gpio();
 
-	g_led3 = xQueueCreate(1, sizeof(uint8_t));
+	vSemaphoreCreateBinary(btnON);
+	vSemaphoreCreateBinary(btnOFF);
 
-	xTaskCreate(taskLED, (char *)"LED", configMINIMAL_STACK_SIZE, NULL, 2, (xTaskHandle *)NULL);
+	xTaskCreate(taskLED_ON, (char *)"LED", configMINIMAL_STACK_SIZE, NULL, 2, (xTaskHandle *)NULL);
+	xTaskCreate(taskLED_OFF, (char *)"LED", configMINIMAL_STACK_SIZE, NULL, 2, (xTaskHandle *)NULL);
 	xTaskCreate(taskButtonScan, (char *)"BUTTONSCAN", configMINIMAL_STACK_SIZE, NULL, 2, (xTaskHandle *)NULL);
 	vTaskStartScheduler();
 
