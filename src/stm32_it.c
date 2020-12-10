@@ -154,9 +154,9 @@ void PendSV_Handler(void)
 * Output         : None
 * Return         : None
 *******************************************************************************/
-void SysTick_Handler(void)
-{
-}
+//void SysTick_Handler(void)
+//{
+//}
 
 /*******************************************************************************
 * Function Name  : USB_IRQHandler

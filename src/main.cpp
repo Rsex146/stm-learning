@@ -11,9 +11,9 @@ extern "C" {
 #include "imu_lib.h"
 
 
-volatile uint32_t g_millis = 0;
+uint32_t g_millis = 0;
 
-void SysTick_Handler()
+extern "C" void SysTick_Handler()
 {
     ++g_millis;
 }
@@ -85,8 +85,8 @@ int main()
     I2C i2c;
     IMU imu1, imu2;
     i2c.init(I2C::Module::N1);
-    imu1.init(&i2c, MPU6050::Module::N1);
-    imu2.init(&i2c, MPU6050::Module::N2);
+    imu1.init(&i2c, MPU6050::Module::N1, &g_millis);
+    imu2.init(&i2c, MPU6050::Module::N2, &g_millis);
 
     GPIOE->ODR |= (1 << 10); // Indicate MPU init
 
@@ -96,12 +96,20 @@ int main()
     {
         if (usbMode && g_millis > 16)
         {
-            Quat q1 = imu1.read(g_millis);
-            Quat q2 = imu2.read(g_millis);
+            Quat q1, q2;
             if ((GPIOA->IDR & 0x1))
             {
+                imu1.calibrate();
+                imu2.calibrate();
+                q1 = imu1.read();
+                q2 = imu2.read();
                 qRef1 = q1.inverse();
                 qRef2 = q2.inverse();
+            }
+            else
+            {
+                q1 = imu1.read();
+                q2 = imu2.read();
             }
             q1 = qRef1 * q1;
             q2 = qRef2 * q2;

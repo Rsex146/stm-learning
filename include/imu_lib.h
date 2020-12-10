@@ -68,31 +68,36 @@ class IMU
 {
     MPU6050 m_mpu;
     Mahony m_filter;
+    uint32_t *m_millis;
 
 public:
     IMU()
     {
     };
 
-    bool init(I2C *i2c, MPU6050::Module module)
+    bool init(I2C *i2c, MPU6050::Module module, uint32_t *millis)
     {
         if (!m_mpu.init(module, i2c))
             return false;
 
-        m_mpu.calibrate(250);
+        m_millis = millis;
 
         return true;
     };
 
-    Quat read(uint32_t millis)
+    void calibrate()
+    {
+        m_mpu.calibrate(50);
+    };
+
+    Quat read()
     {
         float gyro[3];
         float accel[3];
         m_mpu.readGyro(gyro);
         m_mpu.readAccel(accel);
 
-        // float isf = 0.04f;
-        float isf = (float)millis / 1000.0f;
+        float isf = (float)(*m_millis) / 1000.0f;
 
         m_filter.updateIMU(gyro[0], gyro[1], gyro[2], accel[0], accel[1], accel[2], isf);
 

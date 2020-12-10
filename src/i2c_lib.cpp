@@ -65,7 +65,7 @@ void I2C::init(Module module)
     i2c.I2C_DigitalFilter = 0x00;
     i2c.I2C_Ack = I2C_Ack_Enable;
     i2c.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit;
-    i2c.I2C_Timing = 0xC062121F;
+    i2c.I2C_Timing = 0x00310309; // I2C speed 400 KHz, whereby HSI = 8 MHz
     I2C_Init(m_i2c, &i2c);
     
     I2C_Cmd(m_i2c, ENABLE);
