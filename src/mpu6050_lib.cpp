@@ -1,5 +1,6 @@
 
 #include "mpu6050_lib.h"
+#include "timer_lib.h"
 
 
 #define MPU6050_REG_ACCEL_XOFFS_H     (0x06)
@@ -148,7 +149,7 @@ void MPU6050::calibrate(uint16_t sampleCount)
         for (uint8_t j = 0; j < 3; ++j)
         {
             sum[j] += (int32_t)gyro[j];
-            delay(5);
+            g_timer.wait(5);
         }
     }
     for (uint8_t i = 0; i < 3; ++i)
@@ -171,12 +172,6 @@ void MPU6050::readAccel(float *accel)
     readRawAccel(raw);
     for (uint8_t i = 0; i < 3; ++i)
         accel[i] = (float)raw[i] * rangePerDigit * 9.80665f;
-}
-
-void MPU6050::delay(uint32_t ms) const
-{
-    ms = (uint32_t)((float)ms * 7.2f) * 1000;
-    for (uint32_t i = 0; i < ms; ++i) { __NOP(); };
 }
 
 void MPU6050::readRawGyro(int16_t *gyro)

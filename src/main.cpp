@@ -9,14 +9,8 @@ extern "C" {
 }
 
 #include "imu_lib.h"
+#include "timer_lib.h"
 
-
-uint32_t g_millis = 0;
-
-extern "C" void SysTick_Handler()
-{
-    ++g_millis;
-}
 
 void initLED()
 {
@@ -46,13 +40,6 @@ void initButton()
     g.GPIO_OType = GPIO_OType_PP;
     g.GPIO_PuPd = GPIO_PuPd_DOWN;
     GPIO_Init(GPIOA, &g);
-}
-
-void initSysTimer()
-{
-    RCC_ClocksTypeDef c;
-    RCC_GetClocksFreq(&c);
-    SysTick_Config(c.HCLK_Frequency / 1000);
 }
 
 void initUSB()
@@ -85,16 +72,16 @@ int main()
     I2C i2c;
     IMU imu1, imu2;
     i2c.init(I2C::Module::N1);
-    imu1.init(&i2c, MPU6050::Module::N1, &g_millis);
-    imu2.init(&i2c, MPU6050::Module::N2, &g_millis);
+    imu1.init(&i2c, MPU6050::Module::N1);
+    imu2.init(&i2c, MPU6050::Module::N2);
 
     GPIOE->ODR |= (1 << 10); // Indicate MPU init
 
-    initSysTimer();
+    g_timer.init();
 
     while (true)
     {
-        if (usbMode && g_millis > 16)
+        if (usbMode && g_timer.millis() > 16)
         {
             Quat q1, q2;
             if ((GPIOA->IDR & 0x1))
@@ -116,7 +103,7 @@ int main()
             sprintf(buf, "{\"q1\":[%f,%f,%f,%f],\"q2\":[%f,%f,%f,%f]}\n",
                     q1[0], q1[1], q1[2], q1[3], q2[0], q2[1], q2[2], q2[3]);
             USB_Send_String(buf);
-            g_millis = 0;
+            g_timer.reset();
         }
     }
 

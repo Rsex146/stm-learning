@@ -4,6 +4,7 @@
 
 #include "mpu6050_lib.h"
 #include "MahonyAHRS.h"
+#include "timer_lib.h"
 
 
 class Quat
@@ -68,19 +69,16 @@ class IMU
 {
     MPU6050 m_mpu;
     Mahony m_filter;
-    uint32_t *m_millis;
 
 public:
     IMU()
     {
     };
 
-    bool init(I2C *i2c, MPU6050::Module module, uint32_t *millis)
+    bool init(I2C *i2c, MPU6050::Module module)
     {
         if (!m_mpu.init(module, i2c))
             return false;
-
-        m_millis = millis;
 
         return true;
     };
@@ -97,7 +95,7 @@ public:
         m_mpu.readGyro(gyro);
         m_mpu.readAccel(accel);
 
-        float isf = (float)(*m_millis) / 1000.0f;
+        float isf = (float)g_timer.millis() / 1000.0f;
 
         m_filter.updateIMU(gyro[0], gyro[1], gyro[2], accel[0], accel[1], accel[2], isf);
 
