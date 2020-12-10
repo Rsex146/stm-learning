@@ -34,6 +34,8 @@
 #include "usb_istr.h"
 #include "usb_pwr.h"
 
+#include <stdio.h>
+
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 
@@ -100,10 +102,10 @@ void EP1_IN_Callback (void)
 * Output         : None.
 * Return         : None.
 *******************************************************************************/
+extern int32_t g_tau[8];
 void EP3_OUT_Callback(void)
 {
   uint16_t USB_Rx_Cnt;
-  uint8_t data = 0;
   
   /* Get the received data buffer and update the counter */
   USB_Rx_Cnt = USB_SIL_Read(EP3_OUT, USB_Rx_Buffer);
@@ -111,10 +113,9 @@ void EP3_OUT_Callback(void)
   /* USB data will be immediately processed, this allow next USB traffic being 
   NAKed till the end of the USART Xfer */
   
-  data = USB_Rx_Buffer[0];
-  data -= 48;
-  if (data <= 8)
-	  GPIOE->ODR ^= (1 << (data + 7));
+  int index, tau;
+  sscanf((char *)USB_Rx_Buffer, "%d %d", &index, &tau);
+  g_tau[index] = tau;
 
   USB_To_USART_Send_Data(USB_Rx_Buffer, USB_Rx_Cnt);
  
