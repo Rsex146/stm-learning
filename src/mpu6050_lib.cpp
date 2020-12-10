@@ -143,8 +143,16 @@ void MPU6050::calibrate(uint16_t sampleCount)
 {
     int32_t sum[3] = { 0, 0, 0 };
     int16_t gyro[3];
+    GPIOE->ODR = 0;
+    uint16_t interval = sampleCount / 8;
+    uint8_t led = 0;
     for (uint16_t i = 0; i < sampleCount; ++i)
     {
+        if (i % interval == 0)
+        {
+            GPIOE->ODR |= (1 << (led + 8));
+            ++led;
+        }
         readRawGyro(gyro);
         for (uint8_t j = 0; j < 3; ++j)
         {
@@ -154,6 +162,7 @@ void MPU6050::calibrate(uint16_t sampleCount)
     }
     for (uint8_t i = 0; i < 3; ++i)
         m_threshold[i] = (float)sum[i] / (float)sampleCount;
+    GPIOE->ODR = 0xFF00;
 }
 
 void MPU6050::readGyro(float *gyro)
