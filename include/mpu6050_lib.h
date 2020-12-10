@@ -27,7 +27,7 @@ public:
     MPU6050();
 
     bool init(Module gyroAcelModule, I2C *i2c);
-    void calibrate(uint16_t sampleCount);
+    void calibrate(uint16_t sampleCount, uint16_t &dmaSrc);
 
     void readGyro(float *gyro);
     void readAccel(float *accel);

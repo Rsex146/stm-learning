@@ -10,7 +10,10 @@ extern "C" {
 
 #include "imu_lib.h"
 #include "timer_lib.h"
+#include "stm32f30x_dma.h"
 
+
+uint16_t g_dmaSrc = 0;
 
 void initLED()
 {
@@ -50,20 +53,41 @@ void initUSB()
     USB_Init();
 }
 
+void initDMA()
+{
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
+    DMA_InitTypeDef d;
+    DMA_StructInit(&d);
+    d.DMA_PeripheralBaseAddr = (uint32_t)&g_dmaSrc;
+    d.DMA_MemoryBaseAddr = (uint32_t)&(GPIOE->ODR);
+    d.DMA_DIR = DMA_DIR_PeripheralSRC;
+    d.DMA_BufferSize = DMA_PeripheralDataSize_HalfWord;
+    d.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    d.DMA_MemoryInc = DMA_MemoryInc_Disable;
+    d.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+    d.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+    d.DMA_Mode = DMA_Mode_Circular;
+    d.DMA_Priority = DMA_Priority_Medium;
+    d.DMA_M2M = DMA_M2M_Enable;
+    DMA_Init(DMA1_Channel1, &d);
+    DMA_Cmd(DMA1_Channel1, ENABLE);
+}
+
 int main()
 {
     bool usbMode = false;
 
     initLED();
     initButton();
+    initDMA();
     if (GPIOA->IDR & 0x1)
     {
         initUSB();
-        GPIOE->ODR |= (1 << 9); // Indicated USB mode
+        g_dmaSrc |= (1 << 9); // Indicated USB mode
         usbMode = true;
     }
 
-    GPIOE->ODR |= (1 << 8); // Indicated init
+    g_dmaSrc |= (1 << 8); // Indicated init
 
     char buf[255];
 
@@ -75,7 +99,7 @@ int main()
     imu1.init(&i2c, MPU6050::Module::N1);
     imu2.init(&i2c, MPU6050::Module::N2);
 
-    GPIOE->ODR |= (1 << 10); // Indicate MPU init
+    g_dmaSrc |= (1 << 10); // Indicate MPU init
 
     g_timer.init();
 
@@ -86,8 +110,8 @@ int main()
             Quat q1, q2;
             if ((GPIOA->IDR & 0x1))
             {
-                imu1.calibrate();
-                imu2.calibrate();
+                imu1.calibrate(g_dmaSrc);
+                imu2.calibrate(g_dmaSrc);
                 q1 = imu1.read();
                 q2 = imu2.read();
                 qRef1 = q1.inverse();

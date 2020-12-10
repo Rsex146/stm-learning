@@ -83,9 +83,9 @@ public:
         return true;
     };
 
-    void calibrate()
+    void calibrate(uint16_t &dmaSrc)
     {
-        m_mpu.calibrate(50);
+        m_mpu.calibrate(50, dmaSrc);
     };
 
     Quat read()

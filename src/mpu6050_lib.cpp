@@ -1,6 +1,7 @@
 
 #include "mpu6050_lib.h"
 #include "timer_lib.h"
+#include "stm32f30x_dma.h"
 
 
 #define MPU6050_REG_ACCEL_XOFFS_H     (0x06)
@@ -139,18 +140,18 @@ bool MPU6050::init(Module gyroAcelModule, I2C *i2c)
     return true;
 }
 
-void MPU6050::calibrate(uint16_t sampleCount)
+void MPU6050::calibrate(uint16_t sampleCount, uint16_t &dmaSrc)
 {
     int32_t sum[3] = { 0, 0, 0 };
     int16_t gyro[3];
-    GPIOE->ODR = 0;
+    dmaSrc = 0;
     uint16_t interval = sampleCount / 8;
     uint8_t led = 0;
     for (uint16_t i = 0; i < sampleCount; ++i)
     {
         if (i % interval == 0)
         {
-            GPIOE->ODR |= (1 << (led + 8));
+            dmaSrc |= (1 << (led + 8));
             ++led;
         }
         readRawGyro(gyro);
@@ -162,7 +163,7 @@ void MPU6050::calibrate(uint16_t sampleCount)
     }
     for (uint8_t i = 0; i < 3; ++i)
         m_threshold[i] = (float)sum[i] / (float)sampleCount;
-    GPIOE->ODR = 0xFF00;
+    dmaSrc = 0xFF00;
 }
 
 void MPU6050::readGyro(float *gyro)
