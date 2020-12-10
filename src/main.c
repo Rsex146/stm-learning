@@ -69,7 +69,7 @@ void tim()
 	TIM_TimeBaseStructInit(&t);
 	t.TIM_CounterMode = TIM_CounterMode_Up;
 	t.TIM_Prescaler = 36000;
-	t.TIM_Period = 1000;
+	t.TIM_Period = 100;
 	TIM_TimeBaseInit(TIM7, &t);
 
 	TIM_ITConfig(TIM7, TIM_IT_Update, ENABLE);
@@ -78,7 +78,16 @@ void tim()
 
 void TIM7_IRQHandler()
 {
-	GPIOE->ODR ^= (1 << 8);
+	static uint8_t on = 0;
+	if ((GPIOA->IDR & 0x1) && !on)
+	{
+		on = 1;
+		GPIOE->ODR ^= (1 << 8);
+	}
+	else if (!(GPIOA->IDR & 0x1) && on)
+	{
+		on = 0;
+	}
 	TIM_ClearITPendingBit(TIM7, TIM_IT_Update);
 }
 
