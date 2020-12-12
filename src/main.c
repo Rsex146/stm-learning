@@ -31,13 +31,15 @@ void gpio()
 
 	GPIO_InitTypeDef g;
 
-	g.GPIO_Pin = GPIO_Pin_13 | GPIO_Pin_14;
+	GPIO_StructInit(&g);
+	g.GPIO_Pin = GPIO_Pin_13;
 	g.GPIO_Mode = GPIO_Mode_OUT;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
 	g.GPIO_OType = GPIO_OType_PP;
 	g.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	GPIO_Init(GPIOE, &g);
 
+	GPIO_StructInit(&g);
 	g.GPIO_Pin = GPIO_Pin_0;
 	g.GPIO_Mode = GPIO_Mode_IN;
 	g.GPIO_Speed = GPIO_Speed_Level_1;
